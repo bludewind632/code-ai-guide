@@ -1,0 +1,109 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: #f6f7fb;
+  color: #111827;
+}
+
+button {
+  cursor: pointer;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header {
+  margin-bottom: 20px;
+}
+
+.card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 320px 1fr 420px;
+  gap: 16px;
+  align-items: start;
+}
+
+.primary-btn {
+  padding: 12px 18px;
+  background: #111827;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.secondary-btn {
+  padding: 8px 12px;
+  background: #eef2ff;
+  color: #3730a3;
+  border: none;
+  border-radius: 8px;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: 1fr 130px;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.tree-node {
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.tree-file {
+  border: none;
+  background: transparent;
+  text-align: left;
+  color: #2563eb;
+}
+
+.tree-dir {
+  font-weight: 700;
+  margin-top: 8px;
+}
+
+pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #0f172a;
+  color: #e5e7eb;
+  padding: 16px;
+  border-radius: 12px;
+  max-height: 540px;
+  overflow: auto;
+}
+
+.badge {
+  display: inline-block;
+  background: #ecfeff;
+  color: #155e75;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  margin: 3px;
+}
