@@ -4,4 +4,6 @@ conda-env/
 dist/
 build/
 *.log
-
+__pycache__/
+*.pyc
+.idea/
