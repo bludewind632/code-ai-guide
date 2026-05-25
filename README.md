@@ -1,6 +1,6 @@
 # Repo Insight MVP
 
-一个完全可运行的代码仓库智能理解系统 MVP。
+一个完全可运行的代码仓库智能理解系统。
 
 功能：
 
@@ -94,7 +94,7 @@ POST /api/explain
 ## 五、项目结构
 
 ```text
-repo-insight-mvp/
+code-ai-guide/
   backend/
     app/
       main.py
@@ -106,6 +106,7 @@ repo-insight-mvp/
   frontend/
     app/
       page.tsx
+      layout.tsx
       globals.css
     components/
       FileTree.tsx

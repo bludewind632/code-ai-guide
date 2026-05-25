@@ -65,7 +65,7 @@ export default function HomePage() {
   return (
     <main className="container">
       <section className="header">
-        <h1>Repo Insight MVP</h1>
+        <h1>Code AI Guide</h1>
         <p>输入 GitHub 仓库 URL，生成文件树、架构图、学习路径和 AI 代码解释。</p>
       </section>
 
