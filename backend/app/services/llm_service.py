@@ -1,5 +1,6 @@
 import os
 import httpx
+from pathlib import Path
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -62,3 +63,113 @@ def local_explanation(file_path: str, code: str) -> str:
 3. 找入口函数，例如 main、app、handler、router。
 4. 结合架构图查看它与其他文件的关系。
 """
+
+
+async def ask_question(
+    repo_path: str,
+    question: str,
+    file_path: str | None = None,
+    history: list[dict[str, str]] | None = None,
+) -> str:
+    """向 AI 提问关于仓库的问题，支持多轮对话。"""
+    repo_dir = Path(repo_path)
+
+    # ── 构建仓库上下文 ──
+    context_parts = []
+
+    # 文件树摘要
+    tree_lines = _build_tree_summary(repo_dir)
+    if tree_lines:
+        context_parts.append("## 仓库文件结构\n" + "\n".join(tree_lines[:60]))
+
+    # 如果指定了文件，包含其代码
+    if file_path:
+        try:
+            target = (repo_dir / file_path).resolve()
+            if str(target).startswith(str(repo_dir.resolve())):
+                code = target.read_text(encoding="utf-8", errors="ignore")
+                context_parts.append(f"\n## 当前关注的文件：{file_path}\n```\n{code[:10000]}\n```")
+        except Exception:
+            pass
+
+    context = "\n".join(context_parts) if context_parts else "（暂无仓库上下文）"
+
+    system_prompt = f"""你是一个专业的代码学习助手，帮助用户理解代码仓库。
+
+以下是当前仓库的信息：
+
+{context}
+
+请遵守以下规则：
+1. 用中文回答，简洁清晰
+2. 结合仓库上下文给出具体分析，不要泛泛而谈
+3. 如果用户问的问题与当前仓库无关，也可以正常回答
+4. 涉及到代码结构时，说明文件之间的依赖关系
+5. 回答尽量结构化，适当使用列表和标题"""
+
+    if not DEEPSEEK_API_KEY:
+        return _local_answer(question, file_path, repo_dir)
+
+    # ── 构建消息列表 ──
+    messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        for h in history[-10:]:  # 最多保留最近 10 轮
+            role = h.get("role", "user")
+            content = h.get("content", "")
+            if role in ("user", "assistant"):
+                messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": question})
+
+    async with httpx.AsyncClient(timeout=90) as client:
+        resp = await client.post(
+            f"{DEEPSEEK_BASE_URL}/chat/completions",
+            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+            json={
+                "model": "deepseek-chat",
+                "messages": messages,
+                "temperature": 0.4,
+            },
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data["choices"][0]["message"]["content"]
+
+
+def _build_tree_summary(repo_dir: Path, prefix: str = "", max_depth: int = 3) -> list[str]:
+    """构建文件树摘要（限制深度和数量）。"""
+    IGNORE = {".git", "node_modules", "dist", "build", "__pycache__", ".next", ".venv", "venv", ".idea", "conda-env"}
+    lines: list[str] = []
+    try:
+        entries = sorted(repo_dir.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+    except PermissionError:
+        return lines
+
+    depth = prefix.count("│") + prefix.count("├") + prefix.count("└")
+    if depth >= max_depth:
+        return lines
+
+    count = 0
+    for entry in entries:
+        if entry.name in IGNORE or entry.name.startswith("."):
+            continue
+        if count >= 30:
+            lines.append(f"{prefix}... (更多文件)")
+            break
+        if entry.is_dir():
+            lines.append(f"{prefix}📁 {entry.name}/")
+            children = _build_tree_summary(entry, prefix + "  ", max_depth)
+            lines.extend(children[:10])
+        else:
+            lines.append(f"{prefix}📄 {entry.name}")
+        count += 1
+    return lines
+
+
+def _local_answer(question: str, file_path: str | None, repo_dir: Path) -> str:
+    """没有 API Key 时的本地回答。"""
+    name = repo_dir.name
+    parts = ["## 本地回答模式\n", f"当前仓库：`{name}`", f"你的问题：{question}"]
+    if file_path:
+        parts.append(f"\n相关文件：`{file_path}`")
+    parts.append("\n\n> ⚠️ 未配置 DeepSeek API Key，无法生成 AI 回答。请设置 `DEEPSEEK_API_KEY` 环境变量。")
+    return "\n".join(parts)

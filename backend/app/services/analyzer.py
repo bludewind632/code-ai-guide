@@ -226,24 +226,37 @@ def generate_learning_path(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
         return " · ".join(parts)
 
-    # ── 依赖计数：计算有多少其他文件引用了当前文件 ──
-    def calc_dependency_count(file: dict[str, Any]) -> int:
-        count = 0
-        for other in files:
-            if other["path"] == file["path"]:
-                continue
-            for imp in other.get("imports", []):
-                target = find_import_target(imp, files)
-                if target and target == file["path"]:
-                    count += 1
-                    break
-        return count
+    # ── 预构建导入映射：import_name → file_path（只做一次）──
+    import_to_file: dict[str, str] = {}
+    for f in files:
+        path = f["path"].replace("\\", "/")
+        # 注册文件路径本身
+        import_to_file[path] = f["path"]
+        # 注册去掉后缀的路径
+        for suffix in (".py", ".js", ".ts"):
+            if path.endswith(suffix):
+                import_to_file[path[:-len(suffix)]] = f["path"]
+
+    # ── 一次性计算所有文件的被依赖数 ──
+    dep_count_map: dict[str, int] = {f["path"]: 0 for f in files}
+    for f in files:
+        for imp in f.get("imports", []):
+            normalized = imp.replace(".", "/")
+            target = import_to_file.get(normalized)
+            if not target:
+                # 尝试模糊匹配
+                for key, val in import_to_file.items():
+                    if key.endswith("/" + normalized) or key.endswith(normalized + ".py") or key.endswith(normalized + ".js") or key.endswith(normalized + ".ts"):
+                        target = val
+                        break
+            if target and target != f["path"]:
+                dep_count_map[target] = dep_count_map.get(target, 0) + 1
 
     # ── 计分 & 分类 ──
     scored: list[dict[str, Any]] = []
     for f in files:
         stage_order, stage_name = classify(f)
-        dep_count = calc_dependency_count(f)
+        dep_count = dep_count_map.get(f["path"], 0)
         func_count = len(f.get("functions", []))
         class_count = len(f.get("classes", []))
 
@@ -275,7 +288,8 @@ def generate_learning_path(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
             result.append(item)
 
     # ── 补齐至约 18 条 ──
-    remaining = [s for s in scored if not any(r["file_path"] == s["file_path"] for r in result)]
+    result_paths = {r["file_path"] for r in result}
+    remaining = [s for s in scored if s["file_path"] not in result_paths]
     remaining.sort(key=lambda x: -x["priority"])
     for item in remaining:
         if len(result) >= 18:
@@ -284,3 +298,72 @@ def generate_learning_path(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
     result.sort(key=lambda x: (x["stage_order"], -x["priority"]))
     return result
+
+
+TREE_IGNORE = {".git", "node_modules", "dist", "build", "__pycache__", ".next", ".venv", "venv", ".idea", "conda-env", ".pytest_cache", "egg-info", ".mypy_cache", ".tox"}
+TREE_MAX_FILES_PER_DIR = 30
+
+
+def generate_annotated_tree(repo_path: Path, files: list[dict[str, Any]]) -> str:
+    """生成带注释的项目文件树（├─ └─ │ 格式）。"""
+
+    # ── 构建注释查找表 ──
+    annotations: dict[str, str] = {}
+    for f in files:
+        classes = [c["name"] for c in f.get("classes", [])]
+        funcs = [fn["name"] for fn in f.get("functions", [])]
+        parts: list[str] = []
+        if classes:
+            shown = classes[:3]
+            suffix = f" 等{len(classes)}个类" if len(classes) > 3 else ""
+            parts.append(", ".join(shown) + suffix)
+        if funcs:
+            shown = funcs[:3]
+            suffix = f" 等{len(funcs)}个函数" if len(funcs) > 3 else ""
+            parts.append(", ".join(shown) + suffix)
+        if parts:
+            annotations[f["path"]] = "、".join(parts)
+
+    def _make_annotation(rel_path: str) -> str:
+        anno = annotations.get(rel_path, "")
+        return f"  # {anno}" if anno else ""
+
+    # ── 递归遍历生成树 ──
+    def walk(path: Path, prefix: str) -> list[str]:
+        lines: list[str] = []
+        try:
+            entries = sorted(path.iterdir(), key=lambda p: (p.is_file(), p.name.lower()))
+        except PermissionError:
+            return lines
+
+        # 过滤忽略的目录/文件
+        visible = [e for e in entries if e.name not in TREE_IGNORE and not e.name.startswith(".")]
+        if len(visible) > TREE_MAX_FILES_PER_DIR:
+            visible = visible[:TREE_MAX_FILES_PER_DIR]
+            has_more = True
+        else:
+            has_more = False
+
+        for i, entry in enumerate(visible):
+            is_last = (i == len(visible) - 1) and not has_more
+            connector = "└── " if is_last else "├── "
+
+            if entry.is_dir():
+                lines.append(f"{prefix}{connector}{entry.name}/")
+                extension = "    " if is_last else "│   "
+                lines.extend(walk(entry, prefix + extension))
+            else:
+                rel = str(entry.relative_to(repo_path)).replace("\\", "/")
+                anno = _make_annotation(rel)
+                lines.append(f"{prefix}{connector}{entry.name}{anno}→{rel}")
+
+        if has_more:
+            lines.append(f"{prefix}└── ... ({len(entries) - TREE_MAX_FILES_PER_DIR} 个更多文件)")
+
+        return lines
+
+    # ── 根目录 ──
+    root_name = repo_path.name
+    result_lines = [f"{root_name}/"]
+    result_lines.extend(walk(repo_path, ""))
+    return "\n".join(result_lines)

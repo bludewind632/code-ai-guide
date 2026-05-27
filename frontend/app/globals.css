@@ -28,6 +28,7 @@ input {
 }
 
 .header {
+  text-align: center;
   margin-bottom: 20px;
 }
 
@@ -44,6 +45,14 @@ input {
   grid-template-columns: 320px 1fr 420px;
   gap: 16px;
   align-items: start;
+  height: calc(160vh - 140px);
+}
+
+.grid .card {
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .primary-btn {
@@ -103,6 +112,69 @@ input {
   }
 }
 
+/* 注释文件树样式 */
+.annotated-tree {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.75;
+  white-space: pre;
+  overflow: auto;
+  max-height: 500px;
+  background: #fafbfc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px 16px;
+  color: #374151;
+}
+
+.annotated-tree::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.annotated-tree::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.tree-root {
+  font-weight: 700;
+  color: #111827;
+}
+
+.tree-dir {
+  color: #1e40af;
+  font-weight: 600;
+}
+
+.tree-line {
+  display: inline;
+}
+
+.tree-anno {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+/* 树中的可点击文件名 */
+.annotated-tree .tree-file {
+  font-family: inherit;
+  font-size: inherit;
+  color: #2563eb;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  text-decoration: none;
+}
+
+.annotated-tree .tree-file:hover {
+  text-decoration: underline;
+  color: #1d4ed8;
+}
+
 .tree-node {
   padding: 4px 0;
   font-size: 14px;
@@ -115,9 +187,21 @@ input {
   color: #2563eb;
 }
 
+.tree-file-anno {
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
 .tree-dir {
   font-weight: 700;
   margin-top: 8px;
+}
+
+.annotated-tree .tree-dir {
+  margin-top: 0;
 }
 
 pre {
@@ -143,9 +227,14 @@ pre {
 
 /* Mermaid 架构图样式 */
 .mermaid-container {
+  min-height: 160px;
   width: 100%;
   overflow: auto;
-  margin: 16px 0;
+  margin: 8px 0;
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  background: #fafbfc;
+  padding: 2px;
 }
 
 .mermaid-container svg {
@@ -331,7 +420,7 @@ pre {
 
 /* 学习路径样式 */
 .learning-path {
-  max-height: 480px;
+  max-height: 360px;
   overflow-y: auto;
 }
 
@@ -424,4 +513,149 @@ pre {
   font-size: 10px;
   font-weight: 700;
   border-radius: 10px;
+}
+
+/* Ask AI 聊天面板样式 */
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+  margin-bottom: 12px;
+}
+
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.chat-empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40px 16px;
+  font-size: 14px;
+  line-height: 2;
+}
+
+.chat-hints {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #d1d5db;
+}
+
+.chat-bubble {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 13px;
+}
+
+.chat-bubble.user {
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+}
+
+.chat-bubble.assistant {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.chat-role {
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: #6b7280;
+}
+
+.chat-bubble .markdown-content {
+  font-size: 13px;
+}
+
+.chat-bubble .markdown-content h1,
+.chat-bubble .markdown-content h2,
+.chat-bubble .markdown-content h3 {
+  font-size: 1em;
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.chat-bubble .markdown-content p {
+  margin-bottom: 6px;
+}
+
+.chat-bubble .markdown-content pre {
+  max-height: 300px;
+  font-size: 12px;
+}
+
+.chat-typing {
+  color: #9ca3af;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dots::after {
+  content: '';
+  animation: dotPulse 1.4s infinite;
+}
+
+@keyframes dotPulse {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+  100% { content: ''; }
+}
+
+.chat-input-area {
+  display: flex;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chat-input:focus {
+  border-color: #3b82f6;
+}
+
+.chat-send-btn {
+  padding: 10px 16px;
+  background: #111827;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+
+.chat-send-btn:hover:not(:disabled) {
+  background: #374151;
+}
+
+.chat-send-btn:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
 }

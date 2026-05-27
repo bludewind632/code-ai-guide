@@ -11,6 +11,13 @@ class ExplainRequest(BaseModel):
     file_path: str
 
 
+class AskRequest(BaseModel):
+    repo_id: str
+    question: str
+    file_path: str | None = None
+    history: list[dict[str, str]] = []
+
+
 class LearningPathItem(BaseModel):
     file_path: str
     stage: str
@@ -25,3 +32,5 @@ class AnalyzeResponse(BaseModel):
     files: list[dict[str, Any]]
     mermaid: str
     learning_path: list[LearningPathItem]
+    annotated_tree: str
+    file_annotations: dict[str, str]
