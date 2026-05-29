@@ -3,7 +3,7 @@
 }
 
 body {
-  margin: 0;
+  margin: 8px;
   font-family: Arial, Helvetica, sans-serif;
   background: #f6f7fb;
   color: #111827;
@@ -17,14 +17,14 @@ input {
   width: 100%;
   padding: 12px;
   border: 1px solid #d1d5db;
-  border-radius: 10px;
+  border-radius: 24px;
   font-size: 14px;
 }
 
 .container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 12px;
 }
 
 .header {
@@ -42,17 +42,30 @@ input {
 
 .grid {
   display: grid;
-  grid-template-columns: 320px 1fr 420px;
+  grid-template-columns: 360px 540px 480px;
   gap: 16px;
   align-items: start;
-  height: calc(160vh - 140px);
+  height: calc(100vh - 240px);
 }
 
 .grid .card {
-  max-height: 100%;
+  max-height: 98%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.grid .card h2 {
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 1;
+  margin: 0 0 12px 0;
+  padding: 4px 0 10px 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #111827;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .primary-btn {
@@ -60,7 +73,7 @@ input {
   background: #111827;
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 24px;
   font-weight: 600;
 }
 
@@ -74,9 +87,11 @@ input {
 
 .form {
   display: grid;
-  grid-template-columns: 1fr 130px;
+  grid-template-columns: 1fr 100px;
   gap: 12px;
-  margin-bottom: 16px;
+  max-width: 800px;
+  border-radius: 30px;
+  margin: 0 auto 16px;
 }
 
 .tree-container {
@@ -230,11 +245,7 @@ pre {
   min-height: 160px;
   width: 100%;
   overflow: auto;
-  margin: 8px 0;
-  border: 1px solid #f3f4f6;
-  border-radius: 8px;
-  background: #fafbfc;
-  padding: 2px;
+  margin: 2px 0;
 }
 
 .mermaid-container svg {
@@ -629,7 +640,7 @@ pre {
   flex: 1;
   padding: 10px 12px;
   border: 1px solid #d1d5db;
-  border-radius: 10px;
+  border-radius: 24px;
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
@@ -644,7 +655,7 @@ pre {
   background: #111827;
   color: white;
   border: none;
-  border-radius: 10px;
+  border-radius: 24px;
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
