@@ -1,6 +1,8 @@
 'use client';
 
-import { getFileIcon, getDirIcon, getFileColor } from './fileIcons';
+import { useState } from 'react';
+import { VscChevronRight } from 'react-icons/vsc';
+import { getFileIcon, getDirIcon } from './fileIcons';
 
 type TreeNode = {
   name: string;
@@ -21,45 +23,63 @@ export default function FileTree({
   return (
     <div className="tree-container">
       {nodes.map((node) => (
-        <Node key={node.path} node={node} onSelect={onSelect} annotations={annotations} />
+        <TreeNodeItem key={node.path} node={node} onSelect={onSelect} annotations={annotations} />
       ))}
     </div>
   );
 }
 
-function Node({
+function TreeNodeItem({
   node,
   onSelect,
   annotations,
+  depth = 0,
 }: {
   node: TreeNode;
   onSelect: (path: string) => void;
   annotations?: Record<string, string>;
+  depth?: number;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const hasChildren = node.type === 'dir' && node.children && node.children.length > 0;
+
   if (node.type === 'dir') {
-    const DirIcon = getDirIcon();
+    const { icon: DirIcon, color: dirColor } = getDirIcon(node.name);
     return (
       <div className="tree-node">
-        <div className="tree-dir">
-          <DirIcon size={16} style={{ marginRight: 6, verticalAlign: 'middle', flexShrink: 0, color: '#dcb67a' }} />
-          {node.name}
-        </div>
-        <div style={{ paddingLeft: 14 }}>
-          {node.children?.map((child) => (
-            <Node key={child.path} node={child} onSelect={onSelect} annotations={annotations} />
-          ))}
-        </div>
+        <button
+          className={`tree-dir-btn ${hasChildren ? 'has-children' : ''}`}
+          onClick={() => hasChildren && setCollapsed(!collapsed)}
+          style={{ paddingLeft: depth * 14 }}
+        >
+          <VscChevronRight
+            size={14}
+            className={`tree-chevron ${!collapsed && hasChildren ? 'rotated' : ''} ${!hasChildren ? 'hidden' : ''}`}
+          />
+          <DirIcon size={16} style={{ marginRight: 6, flexShrink: 0, color: dirColor }} />
+          <span className="tree-dir-name">{node.name}</span>
+        </button>
+        {!collapsed && hasChildren && (
+          <div className="tree-children">
+            {node.children!.map((child) => (
+              <TreeNodeItem key={child.path} node={child} onSelect={onSelect} annotations={annotations} depth={depth + 1} />
+            ))}
+          </div>
+        )}
       </div>
     );
   }
 
-  const FileIcon = getFileIcon(node.name);
-  const iconColor = getFileColor(node.name);
+  const { icon: FileIcon, color: iconColor } = getFileIcon(node.name);
   const anno = annotations?.[node.path];
 
   return (
     <div className="tree-node">
-      <button className="tree-file" onClick={() => onSelect(node.path)}>
+      <button
+        className="tree-file"
+        onClick={() => onSelect(node.path)}
+        style={{ paddingLeft: depth * 14 + 20 }}
+      >
         <FileIcon
           size={16}
           style={{ marginRight: 6, verticalAlign: 'middle', flexShrink: 0, color: iconColor }}

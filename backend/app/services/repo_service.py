@@ -32,6 +32,15 @@ def clone_or_update(repo_url: str) -> tuple[str, Path]:
     return repo_id, repo_path
 
 
+def get_commit_hash(repo_path: Path) -> str:
+    """获取仓库当前 HEAD 的 commit hash。"""
+    try:
+        repo = Repo(repo_path)
+        return repo.head.commit.hexsha
+    except Exception:
+        return "unknown"
+
+
 def get_repo_path(repo_id: str) -> Path:
     repo_path = REPOS_DIR / repo_id
     if not repo_path.exists():

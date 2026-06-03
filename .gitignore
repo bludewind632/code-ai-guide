@@ -1,5 +1,6 @@
 node_modules/
 .env
+cache/
 conda-env/
 dist/
 build/
@@ -9,3 +10,4 @@ __pycache__/
 .idea/
 repos/
 .next/
+.ps1

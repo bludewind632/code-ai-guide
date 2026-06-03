@@ -5,12 +5,65 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ── Provider 配置 ──
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
+KIMI_API_KEY = os.getenv("KIMI_API_KEY", "")
+KIMI_BASE_URL = os.getenv("KIMI_BASE_URL", "https://api.moonshot.cn/v1")
 
-async def explain_code(file_path: str, code: str) -> str:
-    if not DEEPSEEK_API_KEY:
+PROVIDERS = {
+    "deepseek": {
+        "name": "DeepSeek-v4-Pro",
+        "api_key": DEEPSEEK_API_KEY,
+        "base_url": DEEPSEEK_BASE_URL,
+        "model": "deepseek-chat",
+        "available": bool(DEEPSEEK_API_KEY),
+    },
+    "kimi": {
+        "name": "Kimi-K2.6",
+        "api_key": KIMI_API_KEY,
+        "base_url": KIMI_BASE_URL,
+        "model": "moonshot-v1-8k",
+        "available": bool(KIMI_API_KEY),
+    },
+}
+
+
+def get_provider(provider: str) -> dict:
+    """获取指定 provider 配置，若不可用则回退到 deepseek。"""
+    p = provider.lower()
+    if p not in PROVIDERS:
+        p = "deepseek"
+    cfg = PROVIDERS[p]
+    # 如果指定的不可用，回退到第一个可用的
+    if not cfg["available"]:
+        for key, val in PROVIDERS.items():
+            if val["available"]:
+                cfg = val
+                break
+    return cfg
+
+
+def get_available_providers() -> list[dict[str, str]]:
+    """返回当前可用的 provider 列表（用于前端下拉选择）。"""
+    result = []
+    for key, cfg in PROVIDERS.items():
+        result.append({
+            "id": key,
+            "name": cfg["name"],
+            "available": str(cfg["available"]).lower(),
+        })
+    return result
+
+
+def _api_key_missing_hint(provider_cfg: dict) -> str:
+    return f"当前没有配置 {provider_cfg['name']} API Key，所以返回基础解释。"
+
+
+async def explain_code(file_path: str, code: str, provider: str = "deepseek") -> str:
+    cfg = get_provider(provider)
+    if not cfg["available"]:
         return local_explanation(file_path, code)
 
     prompt = f"""
@@ -32,10 +85,10 @@ async def explain_code(file_path: str, code: str) -> str:
 
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(
-            f"{DEEPSEEK_BASE_URL}/chat/completions",
-            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+            f"{cfg['base_url']}/chat/completions",
+            headers={"Authorization": f"Bearer {cfg['api_key']}"},
             json={
-                "model": "deepseek-chat",
+                "model": cfg["model"],
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.2,
             },
@@ -50,7 +103,7 @@ def local_explanation(file_path: str, code: str) -> str:
     return f"""
 ## 本地解释模式
 
-当前没有配置 DeepSeek API Key，所以返回基础解释。
+当前没有配置可用的 API Key，所以返回基础解释。
 
 文件：`{file_path}`
 
@@ -70,6 +123,7 @@ async def ask_question(
     question: str,
     file_path: str | None = None,
     history: list[dict[str, str]] | None = None,
+    provider: str = "deepseek",
 ) -> str:
     """向 AI 提问关于仓库的问题，支持多轮对话。"""
     repo_dir = Path(repo_path)
@@ -107,7 +161,8 @@ async def ask_question(
 4. 涉及到代码结构时，说明文件之间的依赖关系
 5. 回答尽量结构化，适当使用列表和标题"""
 
-    if not DEEPSEEK_API_KEY:
+    cfg = get_provider(provider)
+    if not cfg["available"]:
         return _local_answer(question, file_path, repo_dir)
 
     # ── 构建消息列表 ──
@@ -122,10 +177,10 @@ async def ask_question(
 
     async with httpx.AsyncClient(timeout=90) as client:
         resp = await client.post(
-            f"{DEEPSEEK_BASE_URL}/chat/completions",
-            headers={"Authorization": f"Bearer {DEEPSEEK_API_KEY}"},
+            f"{cfg['base_url']}/chat/completions",
+            headers={"Authorization": f"Bearer {cfg['api_key']}"},
             json={
-                "model": "deepseek-chat",
+                "model": cfg["model"],
                 "messages": messages,
                 "temperature": 0.4,
             },
@@ -171,5 +226,5 @@ def _local_answer(question: str, file_path: str | None, repo_dir: Path) -> str:
     parts = ["## 本地回答模式\n", f"当前仓库：`{name}`", f"你的问题：{question}"]
     if file_path:
         parts.append(f"\n相关文件：`{file_path}`")
-    parts.append("\n\n> ⚠️ 未配置 DeepSeek API Key，无法生成 AI 回答。请设置 `DEEPSEEK_API_KEY` 环境变量。")
+    parts.append("\n\n> ⚠️ 未配置可用的 API Key，无法生成 AI 回答。请设置 `DEEPSEEK_API_KEY` 或 `KIMI_API_KEY` 环境变量。")
     return "\n".join(parts)

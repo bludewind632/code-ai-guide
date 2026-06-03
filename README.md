@@ -10,7 +10,7 @@
 - 分析 Python / JavaScript / TypeScript 文件中的类、函数、import
 - 生成 Mermaid 架构图
 - 生成学习路径
-- 支持接入 DeepSeek API 做代码解释
+- 支持接入 DeepSeek API 和 Kimi API 做代码解释
 - 提供 Next.js 前端界面
 
 ## 一、启动后端
@@ -18,7 +18,7 @@
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # Windows 用 .venv\Scripts\activate
+.venv\Scripts\activate #启动python环境
 pip install -r requirements.txt
 cp .env.example .env
 uvicorn app.main:app --reload --port 8000
@@ -56,6 +56,7 @@ backend/.env
 
 ```text
 DEEPSEEK_API_KEY=你的 key
+KIMI_API_KEY=你的key
 ```
 
 如果不填，系统会返回本地静态解释，不影响运行。
@@ -101,6 +102,7 @@ code-ai-guide/
       models.py
       services/
         repo_service.py
+        cache_service.py
         analyzer.py
         llm_service.py
   frontend/
@@ -109,6 +111,7 @@ code-ai-guide/
       layout.tsx
       globals.css
     components/
+      filelcons.tsx
       FileTree.tsx
       MermaidView.tsx
 ```

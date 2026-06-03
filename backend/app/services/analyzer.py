@@ -74,6 +74,43 @@ def analyze_js_ts(source: str) -> dict[str, Any]:
 MAX_NODES = 30
 TEST_PREFIXES = ("test_", "tests/", "docs_src/", "docs/", "scripts/", "benchmarks/")
 
+# ── 节点类型推断规则（按优先级排列，越靠前优先级越高）──
+NODE_TYPE_RULES: list[tuple[str, list[str]]] = [
+    ("database",  ["redis", "postgres", "mysql", "mongo", "sqlite", "database", "db", "pg", "mariadb", "couchdb", "cassandra", "neo4j", "dynamodb", "firestore", "supabase"]),
+    ("external",  ["api", "http_client", "client", "openai", "anthropic", "gemini", "llm", "deepseek", "kimi", "external", "webhook", "sdk", "gateway", "proxy"]),
+    ("storage",   ["storage", "s3", "blob", "minio", "file", "filesystem", "cache", "localstorage", "sessionstorage"]),
+    ("service",   ["service", "handler", "controller", "server", "router"]),
+    ("component", ["component", "util", "helper", "middleware", "hook", "plugin", "module", "provider", "context"]),
+    ("client",    ["main", "app", "index", "page", "layout", "entry", "bootstrap", "cli"]),
+]
+
+# ── Mermaid 节点样式（暗色主题配色）──
+NODE_STYLES: dict[str, str] = {
+    "client":    "fill:#1e40af,stroke:#60a5fa,stroke-width:2px,color:#e0e7ff",
+    "service":   "fill:#7c2d12,stroke:#f97316,stroke-width:2px,color:#ffedd5",
+    "component": "fill:#3f3f46,stroke:#a1a1aa,stroke-width:2px,color:#e4e4e7",
+    "database":  "fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#dbeafe",
+    "storage":   "fill:#6b21a8,stroke:#a855f7,stroke-width:2px,color:#f3e8ff",
+    "external":  "fill:#0f766e,stroke:#14b8a6,stroke-width:2px,color:#ccfbf1",
+    "default":   "fill:#374151,stroke:#9ca3af,stroke-width:2px,color:#e5e7eb",
+}
+
+
+def _infer_node_type(path: str, file_info: dict[str, Any] | None = None) -> str:
+    """根据文件路径和内容推断节点类型."""
+    p = path.replace("\\", "/").lower()
+    parts = p.split("/")
+    # 取文件名（去掉后缀）和路径各部分作为检查目标
+    filename = parts[-1].rsplit(".", 1)[0] if "." in parts[-1] else parts[-1]
+    # 构建检查词列表：完整路径 + 文件名 + 路径各部分
+    candidates = [p, filename] + parts
+    for ntype, keywords in NODE_TYPE_RULES:
+        for kw in keywords:
+            for c in candidates:
+                if kw in c:
+                    return ntype
+    return "component"
+
 
 def _is_core_file(path: str) -> bool:
     p = path.replace("\\", "/").lower()
@@ -83,6 +120,18 @@ def _is_core_file(path: str) -> bool:
 def _top_module(path: str) -> str:
     parts = path.replace("\\", "/").split("/")
     return parts[0] if len(parts) > 1 else "."
+
+
+# ── 语义化分组：类型 → 显示标签和排列顺序 ──
+TYPE_GROUP_LABELS: dict[str, str] = {
+    "client":    "入口 & 客户端",
+    "service":   "核心服务",
+    "component": "组件 & 工具",
+    "database":  "数据存储",
+    "storage":   "文件存储",
+    "external":  "外部服务",
+}
+TYPE_GROUP_ORDER: list[str] = ["client", "service", "component", "database", "storage", "external"]
 
 
 def _short_name(path: str) -> str:
@@ -96,7 +145,7 @@ def _short_name(path: str) -> str:
 
 def generate_mermaid(files: list[dict[str, Any]]) -> str:
     if not files:
-        return 'graph TD\n  A["No analyzable files found"]'
+        return 'flowchart TB\n  A["No analyzable files found"]'
 
     # 1) Keep only core source files (no tests, docs, scripts)
     core = [f for f in files if _is_core_file(f["path"])]
@@ -122,32 +171,50 @@ def generate_mermaid(files: list[dict[str, Any]]) -> str:
     for idx, f in enumerate(ranked):
         node_id[f["path"]] = f"N{idx}"
 
-    # 5) Group by top-level module for subgraphs
+    # 5) Group by inferred node type, ordered logically
     groups: dict[str, list[dict]] = {}
     for f in ranked:
-        mod = _top_module(f["path"])
-        groups.setdefault(mod, []).append(f)
+        ntype = _infer_node_type(f["path"], f)
+        groups.setdefault(ntype, []).append(f)
 
-    lines = ["graph TD"]
-    used_ids: set[str] = set()
+    # ── 初始化配置：直线、合理间距 ──
+    lines: list[str] = [
+        "%%{init: {'flowchart': {'curve': 'linear', 'nodeSpacing': 30, 'rankSpacing': 120, 'padding': 20}, 'themeVariables': {'fontSize': '24px'}}}%%",
+        "flowchart TB",
+    ]
 
-    for mod, members in groups.items():
+    # ── classDef 样式定义（替代逐节点 style）──
+    for ntype, style in NODE_STYLES.items():
+        if ntype == "default":
+            continue
+        lines.append(f"  classDef {ntype} {style}")
+
+    # ── 节点 & 子图 ──
+    typed_ids: dict[str, list[str]] = {}
+    for ntype in TYPE_GROUP_ORDER:
+        members = groups.get(ntype, [])
+        if not members:
+            continue
+        label = TYPE_GROUP_LABELS.get(ntype, ntype)
+        ids: list[str] = []
         if len(members) == 1:
             f = members[0]
             safe = _short_name(f["path"]).replace('"', "'")
             nid = node_id[f["path"]]
             lines.append(f'  {nid}["{safe}"]')
-            used_ids.add(nid)
+            ids.append(nid)
         else:
-            lines.append(f"  subgraph {mod}")
+            lines.append(f"  subgraph \"{label}\"")
+            lines.append("    direction TB")
             for f in members:
                 safe = _short_name(f["path"]).replace('"', "'")
                 nid = node_id[f["path"]]
                 lines.append(f'    {nid}["{safe}"]')
-                used_ids.add(nid)
+                ids.append(nid)
             lines.append("  end")
+        typed_ids[ntype] = ids
 
-    # 6) Add edges (only between selected nodes), limit per node
+    # ── 边（仅选中节点间，每节点最多 3 条出边）──
     edge_count: dict[str, int] = {}
     MAX_EDGES_PER_NODE = 3
     for src, tgt in sorted(edges_set):
@@ -156,6 +223,12 @@ def generate_mermaid(files: list[dict[str, Any]]) -> str:
                 continue
             lines.append(f"  {node_id[src]} --> {node_id[tgt]}")
             edge_count[src] = edge_count.get(src, 0) + 1
+
+    # ── class 批量应用（一行一个类型）──
+    for ntype in TYPE_GROUP_ORDER:
+        ids = typed_ids.get(ntype, [])
+        if ids:
+            lines.append(f"  class {','.join(ids)} {ntype}")
 
     return "\n".join(lines)
 
@@ -167,6 +240,129 @@ def find_import_target(import_name: str, files: list[dict[str, Any]]) -> str | N
         if path.endswith(normalized + ".py") or path.endswith(normalized + ".js") or path.endswith(normalized + ".ts"):
             return file["path"]
     return None
+
+
+def generate_graph_json(files: list[dict[str, Any]]) -> dict[str, Any]:
+    """生成结构化 JSON 架构图数据，供前端灵活渲染."""
+    if not files:
+        return {"nodes": [], "edges": [], "cycles": []}
+
+    core = [f for f in files if _is_core_file(f["path"])]
+    path_set = {f["path"] for f in core}
+    import_count: dict[str, int] = {f["path"]: 0 for f in core}
+    edges_set: set[tuple[str, str]] = set()
+
+    for f in core:
+        for imp in f.get("imports", []):
+            target = find_import_target(imp, files)
+            if target and target != f["path"] and target in path_set:
+                import_count[target] = import_count.get(target, 0) + 1
+                edges_set.add((f["path"], target))
+
+    ranked = sorted(core, key=lambda f: import_count.get(f["path"], 0), reverse=True)[:MAX_NODES]
+    selected = {f["path"] for f in ranked}
+
+    # ── 构建节点列表 ──
+    nodes: list[dict[str, Any]] = []
+    for idx, f in enumerate(ranked):
+        ntype = _infer_node_type(f["path"], f)
+        nodes.append({
+            "id": f"N{idx}",
+            "path": f["path"],
+            "label": _short_name(f["path"]),
+            "type": ntype,
+            "language": f.get("language", "Unknown"),
+            "class_count": len(f.get("classes", [])),
+            "func_count": len(f.get("functions", [])),
+            "import_count": import_count.get(f["path"], 0),
+            "group": ntype,
+            "group_label": TYPE_GROUP_LABELS.get(ntype, ntype),
+            "style": NODE_STYLES.get(ntype, NODE_STYLES["default"]),
+        })
+
+    # ── 构建边列表 ──
+    edges: list[dict[str, Any]] = []
+    edge_count: dict[str, int] = {}
+    MAX_EDGES_PER_NODE = 3
+    for src, tgt in sorted(edges_set):
+        if src in selected and tgt in selected:
+            if edge_count.get(src, 0) >= MAX_EDGES_PER_NODE:
+                continue
+            src_id = next(n["id"] for n in nodes if n["path"] == src)
+            tgt_id = next(n["id"] for n in nodes if n["path"] == tgt)
+            edges.append({"source": src_id, "target": tgt_id})
+            edge_count[src] = edge_count.get(src, 0) + 1
+
+    # ── 构建分组（按类型语义分层，保持顺序）──
+    ordered_groups: list[dict[str, Any]] = []
+    seen_types: set[str] = set()
+    for ntype in TYPE_GROUP_ORDER:
+        type_node_ids = [n["id"] for n in nodes if n["group"] == ntype]
+        if type_node_ids:
+            ordered_groups.append({
+                "name": ntype,
+                "label": TYPE_GROUP_LABELS.get(ntype, ntype),
+                "nodes": type_node_ids,
+            })
+            seen_types.add(ntype)
+    # 兜底：未出现在排序表中的类型
+    for n in nodes:
+        if n["group"] not in seen_types:
+            ordered_groups.append({
+                "name": n["group"],
+                "label": TYPE_GROUP_LABELS.get(n["group"], n["group"]),
+                "nodes": [n["id"]],
+            })
+            seen_types.add(n["group"])
+
+    # ── 循环依赖检测 ──
+    cycles = detect_cycles(nodes, edges)
+
+    return {
+        "nodes": nodes,
+        "edges": edges,
+        "groups": ordered_groups,
+        "cycles": cycles,
+        "summary": {
+            "total_files": len(files),
+            "core_files": len(core),
+            "shown_nodes": len(nodes),
+            "shown_edges": len(edges),
+        },
+    }
+
+
+def detect_cycles(nodes: list[dict[str, Any]], edges: list[dict[str, Any]]) -> list[list[str]]:
+    """DFS 检测图中的循环依赖，返回所有找到的环."""
+    adj: dict[str, list[str]] = {n["id"]: [] for n in nodes}
+    for e in edges:
+        adj.setdefault(e["source"], []).append(e["target"])
+
+    all_cycles: list[list[str]] = []
+    visited: set[str] = set()
+    rec_stack: list[str] = []
+    in_stack: set[str] = set()
+
+    def dfs(node_id: str) -> None:
+        visited.add(node_id)
+        rec_stack.append(node_id)
+        in_stack.add(node_id)
+        for neighbor in adj.get(node_id, []):
+            if neighbor not in visited:
+                dfs(neighbor)
+            elif neighbor in in_stack:
+                # 找到环：从 rec_stack 中截取
+                cycle_start = rec_stack.index(neighbor)
+                cycle = rec_stack[cycle_start:] + [neighbor]
+                all_cycles.append(cycle)
+        rec_stack.pop()
+        in_stack.discard(node_id)
+
+    for nid in adj:
+        if nid not in visited:
+            dfs(nid)
+
+    return all_cycles
 
 
 def generate_learning_path(files: list[dict[str, Any]]) -> list[dict[str, Any]]:
