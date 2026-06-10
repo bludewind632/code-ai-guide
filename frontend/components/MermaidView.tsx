@@ -85,7 +85,22 @@ export default function MermaidView({ chart }: { chart: string }) {
 
   const zoomIn = useCallback(() => applyZoom(zoomLevel + ZOOM_STEP), [applyZoom, zoomLevel]);
   const zoomOut = useCallback(() => applyZoom(zoomLevel - ZOOM_STEP), [applyZoom, zoomLevel]);
-  const zoomReset = useCallback(() => { setZoomLevel(initialZoom); setPanX(0); setPanY(0); }, [initialZoom]);
+  const zoomReset = useCallback(() => {
+    setZoomLevel(initialZoom);
+    // 重置时也重新居中
+    const area = areaRef.current;
+    if (area) {
+      const areaW = area.clientWidth;
+      const areaH = area.clientHeight;
+      const cw = svgSize.w * initialZoom;
+      const ch = svgSize.h * initialZoom;
+      setPanX(cw < areaW ? (areaW - cw) / 2 : 0);
+      setPanY(ch < areaH ? (areaH - ch) / 2 : 0);
+    } else {
+      setPanX(0);
+      setPanY(0);
+    }
+  }, [initialZoom, svgSize.w, svgSize.h]);
 
   // ── 滚轮缩放（以鼠标位置为中心）──
   const onWheel = useCallback((e: React.WheelEvent) => {
@@ -136,6 +151,25 @@ export default function MermaidView({ chart }: { chart: string }) {
     setPanY(0);
     setZoomed(true);
   }
+
+  // ── 弹窗打开后计算居中偏移 ──
+  useEffect(() => {
+    if (!zoomed) return;
+    // 延迟一帧确保 DOM 已完成布局
+    requestAnimationFrame(() => {
+      const area = areaRef.current;
+      if (!area) return;
+      const areaW = area.clientWidth;
+      const areaH = area.clientHeight;
+      const contentW = svgSize.w * zoomLevel;
+      const contentH = svgSize.h * zoomLevel;
+      // 仅当内容小于可视区域时居中，大于时保持左上角可滚动
+      const offsetX = contentW < areaW ? (areaW - contentW) / 2 : 0;
+      const offsetY = contentH < areaH ? (areaH - contentH) / 2 : 0;
+      setPanX(offsetX);
+      setPanY(offsetY);
+    });
+  }, [zoomed, svgSize.w, svgSize.h, zoomLevel]);
 
   return (
     <>

@@ -475,8 +475,7 @@ pre {
 }
 
 .mermaid-zoom-content {
-  display: inline-block;
-  min-width: max-content;
+  display: block;
   transform-origin: 0 0;
   transition: transform 0.08s ease-out;
 }
